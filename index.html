@@ -2,23 +2,32 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cloud Group Chat</title>
 
 <link rel="stylesheet" href="style.css">
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-
 </head>
+
 <body>
 
+<!-- ===== NAME MODAL ===== -->
+<div id="nameModal" class="modal">
+  <div class="modal-box">
+    <h3>Ismingni yoz</h3>
+    <input id="nameInput" placeholder="Masalan: Ali">
+    <button onclick="confirmName()">Kirish</button>
+  </div>
+</div>
+
+<!-- ===== CHAT APP ===== -->
 <div class="chat-app">
-  <div class="chat-header">Cloud Group Chat</div>
+  <div class="chat-header">
+    <span>Cloud Group Chat</span>
+    <span id="onlineCount" class="online">🟢 0 online</span>
+  </div>
 
   <div id="chat"></div>
-
-  <div class="chat-input">
-    <input id="name" placeholder="Ismingni yoz">
-    <button onclick="join()">Join</button>
-  </div>
 
   <div class="chat-input">
     <input id="text" placeholder="Xabar yoz...">
@@ -27,13 +36,17 @@
 </div>
 
 <script>
+/* ===== SUPABASE ===== */
 const SUPABASE_URL = "https://mixqmodnjjagdqlftugf.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1peHFtb2RuamphZ2RxbGZ0dWdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MTI4MzUsImV4cCI6MjA4MTQ4ODgzNX0.aQgTGEciwS7lJPpolmpV4FY1r8CHj3Wf5IIG-JqvRA0";
 
 const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const chat = document.getElementById("chat");
-let username = "";
 
+let username = "";
+const chat = document.getElementById("chat");
+const onlineLabel = document.getElementById("onlineCount");
+
+/* ===== HELPERS ===== */
 function addMessage(text, cls="msg") {
   const d = document.createElement("div");
   d.className = cls;
@@ -42,20 +55,23 @@ function addMessage(text, cls="msg") {
   chat.scrollTop = chat.scrollHeight;
 }
 
-async function join() {
-  const name = document.getElementById("name").value.trim();
+/* ===== CONFIRM NAME ===== */
+async function confirmName() {
+  const name = document.getElementById("nameInput").value.trim();
   if (!name) return alert("Ism yoz");
 
   username = name;
+  document.getElementById("nameModal").style.display = "none";
 
   await client.from("Messeg").insert({
     user_name: "SYSTEM",
     content: username + " chatga a’zo bo‘ldi"
   });
 
-  addMessage("Siz chatga a’zo bo‘ldingiz", "system");
+  startPresence();
 }
 
+/* ===== SEND ===== */
 async function sendMsg() {
   const text = document.getElementById("text").value.trim();
   if (!text || !username) return;
@@ -68,7 +84,8 @@ async function sendMsg() {
   document.getElementById("text").value = "";
 }
 
-client.channel("chat")
+/* ===== CHAT REALTIME ===== */
+client.channel("messages")
   .on(
     "postgres_changes",
     { event: "INSERT", schema: "public", table: "Messeg" },
@@ -84,6 +101,27 @@ client.channel("chat")
     }
   )
   .subscribe();
+
+/* ===== PRESENCE (ONLINE USERS) ===== */
+let presenceChannel;
+
+function startPresence() {
+  presenceChannel = client.channel("online-users", {
+    config: { presence: { key: username } }
+  });
+
+  presenceChannel.on("presence", { event: "sync" }, () => {
+    const state = presenceChannel.presenceState();
+    const count = Object.keys(state).length;
+    onlineLabel.textContent = "🟢 " + count + " online";
+  });
+
+  presenceChannel.subscribe(status => {
+    if (status === "SUBSCRIBED") {
+      presenceChannel.track({ user: username });
+    }
+  });
+}
 </script>
 
 </body>

@@ -2,7 +2,7 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
-<title>ZeroCost Cloud Group Chat</title>
+<title>ZeroCost Cloud Group Chat (Demo)</title>
 <style>
 body { font-family: Arial; background:#f4f4f4; padding:20px }
 #chat {
@@ -19,7 +19,7 @@ body { font-family: Arial; background:#f4f4f4; padding:20px }
 </head>
 <body>
 
-<h2>ZeroCost Cloud Group Chat</h2>
+<h2>ZeroCost Cloud Group Chat (Cloud Demo)</h2>
 
 <input id="username" placeholder="Ismingni yoz">
 <button onclick="join()">Join</button>
@@ -31,13 +31,9 @@ body { font-family: Arial; background:#f4f4f4; padding:20px }
 
 <script>
 const chat = document.getElementById("chat");
-const socket = new WebSocket(
-  "wss://demo.piesocket.com/v3/channel/cloud-group-chat?api_key=demokey&notify_self=1"
-);
 let user = "";
 let joined = false;
 
-// yordamchi funksiya
 function addMessage(html, cls="msg") {
   const div = document.createElement("div");
   div.className = cls;
@@ -46,7 +42,6 @@ function addMessage(html, cls="msg") {
   chat.scrollTop = chat.scrollHeight;
 }
 
-// Join
 function join() {
   const name = document.getElementById("username").value.trim();
   if (!name) {
@@ -55,10 +50,9 @@ function join() {
   }
   user = name;
   joined = true;
-  addMessage("Siz chatga a’zo bo‘ldingiz", "system");
+  addMessage(`🔔 <b>${user}</b> chatga a’zo bo‘ldi`, "system");
 }
 
-// Send
 function send() {
   if (!joined) {
     alert("Avval Join bosing");
@@ -67,32 +61,9 @@ function send() {
   const text = document.getElementById("text").value.trim();
   if (!text) return;
 
-  const payload = {
-    user,
-    text
-  };
-
-  socket.send(JSON.stringify(payload));
-
-  // o‘zing yuborgan xabarni darrov ko‘rsatamiz
-  addMessage(`<b>Men:</b> ${text}`, "msg me");
-
+  addMessage(`<b>${user}:</b> ${text}`, "msg me");
   document.getElementById("text").value = "";
 }
-
-// Receive (echo server qaytaradi)
-socket.onmessage = e => {
-  try {
-    const data = JSON.parse(e.data);
-
-    // o‘zing yuborgan bo‘lsa – qayta chiqarmaymiz
-    if (data.user === user) return;
-
-    addMessage(`<b>${data.user}:</b> ${data.text}`);
-  } catch {
-    // boshqa echo xabarlarni e’tiborsiz qoldiramiz
-  }
-};
 </script>
 
 </body>

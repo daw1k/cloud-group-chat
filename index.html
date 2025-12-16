@@ -1,19 +1,20 @@
 <!DOCTYPE html>
 <html lang="uz">
 <head>
-<meta charset="UTF-8" />
-<title>Cloud Group Chat (Supabase)</title>
+<meta charset="UTF-8">
+<title>Cloud Group Chat</title>
+
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
 <style>
-body { font-family: Arial; background:#f2f2f2; padding:20px }
+body { font-family: Arial; padding:20px; background:#f2f2f2 }
 #chat {
   background:#fff;
-  height:350px;
-  overflow-y:auto;
-  padding:10px;
   border:1px solid #ccc;
+  height:300px;
+  padding:10px;
+  overflow-y:auto;
 }
-.msg { margin:6px 0 }
 .system { color:gray; font-style:italic }
 .me { color:green }
 </style>
@@ -22,56 +23,51 @@ body { font-family: Arial; background:#f2f2f2; padding:20px }
 
 <h2>Cloud Group Chat</h2>
 
-<input id="username" placeholder="Ismingni yoz">
+<input id="name" placeholder="Ismingni yoz">
 <button onclick="join()">Join</button>
 
 <div id="chat"></div>
 
-<input id="text" placeholder="Xabar yoz..." style="width:70%">
-<button onclick="sendMessage()">Send</button>
+<input id="text" placeholder="Xabar yoz">
+<button onclick="sendMsg()">Send</button>
 
 <script>
-/* === SUPABASE CONFIG === */
+/* === SUPABASE === */
 const SUPABASE_URL = "https://mixqmodnjjagdqlftugf.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1peHFtb2RuamphZ2RxbGZ0dWdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MTI4MzUsImV4cCI6MjA4MTQ4ODgzNX0.aQgTGEciwS7lJPpolmpV4FY1r8CHj3Wf5IIG-JqvRA0";
 
-const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const chat = document.getElementById("chat");
 let username = "";
+const chat = document.getElementById("chat");
 
-/* === HELPERS === */
-function addMessage(html, cls="msg") {
-  const div = document.createElement("div");
-  div.className = cls;
-  div.innerHTML = html;
-  chat.appendChild(div);
+function add(text, cls="") {
+  const d = document.createElement("div");
+  d.className = cls;
+  d.innerHTML = text;
+  chat.appendChild(d);
   chat.scrollTop = chat.scrollHeight;
 }
 
-/* === JOIN === */
+/* JOIN */
 async function join() {
-  const name = document.getElementById("username").value.trim();
-  if (!name) {
-    alert("Ism yoz");
-    return;
-  }
-  username = name;
+  username = document.getElementById("name").value.trim();
+  if (!username) return alert("Ism yoz");
 
-  await supabase.from("Messeg").insert({
+  await client.from("Messeg").insert({
     user_name: "SYSTEM",
-    content: `${username} chatga a’zo bo‘ldi`
+    content: username + " chatga a’zo bo‘ldi"
   });
 
-  addMessage(`Siz chatga a’zo bo‘ldingiz`, "system");
+  add("Siz chatga a’zo bo‘ldingiz", "system");
 }
 
-/* === SEND MESSAGE === */
-async function sendMessage() {
+/* SEND */
+async function sendMsg() {
   const text = document.getElementById("text").value.trim();
   if (!text || !username) return;
 
-  await supabase.from("Messeg").insert({
+  await client.from("Messeg").insert({
     user_name: username,
     content: text
   });
@@ -79,21 +75,19 @@ async function sendMessage() {
   document.getElementById("text").value = "";
 }
 
-/* === REALTIME SUBSCRIBE === */
-supabase
-  .channel("public:Messeg")
+/* REALTIME */
+client.channel("chat")
   .on(
     "postgres_changes",
     { event: "INSERT", schema: "public", table: "Messeg" },
     payload => {
-      const msg = payload.new;
-
-      if (msg.user_name === "SYSTEM") {
-        addMessage(msg.content, "system");
-      } else if (msg.user_name === username) {
-        addMessage(`<b>Men:</b> ${msg.content}`, "me");
+      const m = payload.new;
+      if (m.user_name === "SYSTEM") {
+        add(m.content, "system");
+      } else if (m.user_name === username) {
+        add("<b>Men:</b> " + m.content, "me");
       } else {
-        addMessage(`<b>${msg.user_name}:</b> ${msg.content}`);
+        add("<b>" + m.user_name + ":</b> " + m.content);
       }
     }
   )

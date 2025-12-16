@@ -1,20 +1,27 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uz">
 <head>
 <meta charset="UTF-8">
 <title>ZeroCost Cloud Group Chat</title>
 <style>
 body { font-family: Arial; background:#f4f4f4; padding:20px }
-#chat { background:#fff; height:350px; overflow-y:auto; padding:10px; border:1px solid #ccc }
-.msg { margin:5px 0 }
-button { margin-left:5px }
+#chat {
+  background:#fff;
+  height:350px;
+  overflow-y:auto;
+  padding:10px;
+  border:1px solid #ccc;
+}
+.msg { margin:6px 0 }
+.system { color: gray; font-style: italic }
+.me { color: green }
 </style>
 </head>
 <body>
 
 <h2>ZeroCost Cloud Group Chat</h2>
 
-<input id="username" placeholder="Ismingni yoz" />
+<input id="username" placeholder="Ismingni yoz">
 <button onclick="join()">Join</button>
 
 <div id="chat"></div>
@@ -24,68 +31,66 @@ button { margin-left:5px }
 
 <script>
 const chat = document.getElementById("chat");
-let user = "";
 const socket = new WebSocket("wss://echo.websocket.events");
+let user = "";
+let joined = false;
 
-
-function join() {
-  user = document.getElementById("username").value || "Guest";
+// yordamchi funksiya
+function addMessage(html, cls="msg") {
+  const div = document.createElement("div");
+  div.className = cls;
+  div.innerHTML = html;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
 }
 
+// Join
+function join() {
+  const name = document.getElementById("username").value.trim();
+  if (!name) {
+    alert("Iltimos, ismingni yoz");
+    return;
+  }
+  user = name;
+  joined = true;
+  addMessage("Siz chatga a’zo bo‘ldingiz", "system");
+}
+
+// Send
 function send() {
-  const text = document.getElementById("text").value;
+  if (!joined) {
+    alert("Avval Join bosing");
+    return;
+  }
+  const text = document.getElementById("text").value.trim();
   if (!text) return;
-  const msg = {
-    type: "new",
-    id: Date.now(),
+
+  const payload = {
     user,
     text
   };
-  socket.send(JSON.stringify(msg));
+
+  socket.send(JSON.stringify(payload));
+
+  // o‘zing yuborgan xabarni darrov ko‘rsatamiz
+  addMessage(`<b>Men:</b> ${text}`, "msg me");
+
   document.getElementById("text").value = "";
 }
 
+// Receive (echo server qaytaradi)
 socket.onmessage = e => {
-  const data = JSON.parse(e.data);
+  try {
+    const data = JSON.parse(e.data);
 
-  if (data.type === "new") {
-    const div = document.createElement("div");
-    div.className = "msg";
-    div.id = data.id;
-    div.innerHTML = `<b>${data.user}:</b> 
-      <span>${data.text}</span>
-      <button onclick="edit(${data.id})">Edit</button>
-      <button onclick="del(${data.id})">Delete</button>`;
-    chat.appendChild(div);
-  }
+    // o‘zing yuborgan bo‘lsa – qayta chiqarmaymiz
+    if (data.user === user) return;
 
-  if (data.type === "edit") {
-    const el = document.getElementById(data.id);
-    if (el) el.querySelector("span").innerText = data.text;
-  }
-
-  if (data.type === "delete") {
-    const el = document.getElementById(data.id);
-    if (el) el.remove();
+    addMessage(`<b>${data.user}:</b> ${data.text}`);
+  } catch {
+    // boshqa echo xabarlarni e’tiborsiz qoldiramiz
   }
 };
-
-function edit(id) {
-  const newText = prompt("Yangi matn:");
-  if (!newText) return;
-  socket.send(JSON.stringify({
-    type: "edit",
-    id,
-    text: newText
-  }));
-}
-
-function del(id) {
-  socket.send(JSON.stringify({
-    type: "delete",
-    id
-  }));
-}
 </script>
 
 </body>
